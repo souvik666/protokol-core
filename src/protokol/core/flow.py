@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, Type
+from typing import Any, Dict, Type
 from .step import AbstractStep
 from .types import RunPlan, StepContext
 from abc import abstractmethod
