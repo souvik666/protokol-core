@@ -553,8 +553,7 @@ yields Contexts to the user, and advances the state machine based on user result
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>src/protokol/engine/runner.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">  9</span>
-<span class="normal"> 10</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 10</span>
 <span class="normal"> 11</span>
 <span class="normal"> 12</span>
 <span class="normal"> 13</span>
@@ -717,7 +716,19 @@ yields Contexts to the user, and advances the state machine based on user result
 <span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
-<span class="normal">173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Engine</span><span class="p">:</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Engine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The Protokol Execution Engine.</span>
 <span class="sd">    This class is completely synchronous and stateless. It evaluates the current RunPlan, </span>
@@ -728,11 +739,13 @@ yields Contexts to the user, and advances the state machine based on user result
         <span class="n">on_step_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RunPlan</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">on_step_complete</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RunPlan</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">on_flow_error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RunPlan</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">retry_strategy</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RetryStrategy</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="c1"># Observability hooks for integrating Datadog, Prometheus, etc.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span> <span class="o">=</span> <span class="n">on_step_start</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span> <span class="o">=</span> <span class="n">on_step_complete</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">on_flow_error</span> <span class="o">=</span> <span class="n">on_flow_error</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">retry_strategy</span> <span class="o">=</span> <span class="n">retry_strategy</span> <span class="ow">or</span> <span class="n">SimpleRetryStrategy</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">root_flow</span><span class="p">:</span> <span class="n">AbstractFlow</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">RunPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AbstractFlow</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve the currently active flow by walking down the nested flow call stack.&quot;&quot;&quot;</span>
@@ -753,7 +766,7 @@ yields Contexts to the user, and advances the state machine based on user result
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="n">contexts</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">s_id</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">:</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">:</span> 
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">(</span><span class="n">s_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span>
                 <span class="n">contexts</span><span class="p">[</span><span class="n">s_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">contexts</span>
@@ -781,39 +794,44 @@ yields Contexts to the user, and advances the state machine based on user result
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">user_result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;For parallel execution, user_result must be a dict.&quot;</span><span class="p">)</span>
 
-                <span class="n">next_steps</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">next_steps</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">s_id</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">:</span>
                     <span class="n">step</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
+                    <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
 
                     <span class="k">try</span><span class="p">:</span>
                         <span class="n">output</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">))</span>
                     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                         <span class="c1"># Built-in Retry Logic: If processing fails, increment attempt and skip advancing.</span>
-                        <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
                         <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
                         <span class="n">step_state</span><span class="o">.</span><span class="n">last_error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">&lt;=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">max_retries</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">retry_strategy</span><span class="o">.</span><span class="n">should_retry</span><span class="p">(</span><span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
                             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">s_id</span><span class="si">}</span><span class="s2"> failed, retrying: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                             <span class="n">next_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span> <span class="c1"># Keep step in the next parallel batch</span>
                             <span class="k">continue</span>
                         <span class="k">else</span><span class="p">:</span>
                             <span class="k">raise</span> <span class="n">e</span>
 
+                    <span class="n">attempt_before_reset</span> <span class="o">=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span>
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">:</span>
                         <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">(</span><span class="n">s_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
-                    <span class="c1"># Write to immutable audit log</span>
-                    <span class="n">plan</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                        <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">s_id</span><span class="p">,</span>
-                        <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
-                        <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">),</span>
-                    <span class="p">})</span>
-
                     <span class="c1"># Calculate next step(s)</span>
                     <span class="n">ns</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">next</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+                    <span class="c1"># Write to immutable audit log</span>
+                    <span class="n">plan</span><span class="o">.</span><span class="n">add_trace_entry</span><span class="p">(</span>
+                        <span class="n">step</span><span class="o">=</span><span class="n">s_id</span><span class="p">,</span>
+                        <span class="n">attempt</span><span class="o">=</span><span class="n">attempt_before_reset</span><span class="p">,</span>
+                        <span class="n">result</span><span class="o">=</span><span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">),</span>
+                        <span class="n">next_step</span><span class="o">=</span><span class="n">ns</span><span class="p">,</span>
+                        <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                    <span class="n">plan</span><span class="o">.</span><span class="n">reset_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
+
                     <span class="k">if</span> <span class="n">ns</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span> <span class="n">next_steps</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
-                        <span class="k">else</span><span class="p">:</span> <span class="n">next_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+                        <span class="n">next_steps</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ns</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">ns</span><span class="p">])</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">_handle_next_steps</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">next_steps</span><span class="p">)</span>
 
@@ -822,31 +840,35 @@ yields Contexts to the user, and advances the state machine based on user result
                 <span class="n">current_step_id</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span>
                 <span class="n">step</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
 
+                <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">output</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">user_result</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="c1"># Built-in Retry Logic</span>
-                    <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
                     <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
                     <span class="n">step_state</span><span class="o">.</span><span class="n">last_error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">&lt;=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">max_retries</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">retry_strategy</span><span class="o">.</span><span class="n">should_retry</span><span class="p">(</span><span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
                         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">current_step_id</span><span class="si">}</span><span class="s2"> failed, retrying: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                         <span class="k">return</span> <span class="c1"># Abort advancement, exact same context will be yielded on next loop</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">e</span>
 
+                <span class="n">attempt_before_reset</span> <span class="o">=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
                 <span class="n">ns</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">next</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
                 <span class="c1"># Write to immutable audit log</span>
-                <span class="n">plan</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                    <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">current_step_id</span><span class="p">,</span>
-                    <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
-                    <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">user_result</span><span class="p">,</span>
-                    <span class="s2">&quot;next&quot;</span><span class="p">:</span> <span class="n">ns</span>
-                <span class="p">})</span>
+                <span class="n">plan</span><span class="o">.</span><span class="n">add_trace_entry</span><span class="p">(</span>
+                    <span class="n">step</span><span class="o">=</span><span class="n">current_step_id</span><span class="p">,</span>
+                    <span class="n">attempt</span><span class="o">=</span><span class="n">attempt_before_reset</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">=</span><span class="n">user_result</span><span class="p">,</span>
+                    <span class="n">next_step</span><span class="o">=</span><span class="n">ns</span><span class="p">,</span>
+                    <span class="n">parallel</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">plan</span><span class="o">.</span><span class="n">reset_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">_handle_next_steps</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
 
@@ -878,8 +900,8 @@ yields Contexts to the user, and advances the state machine based on user result
                 <span class="c1"># Stack is empty, the root flow is complete</span>
                 <span class="n">plan</span><span class="o">.</span><span class="n">is_terminal</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="c1"># Parallel execution</span>
-            <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ns</span><span class="p">))</span>
+            <span class="c1"># Parallel execution - preserve order and deduplicate while keeping deterministic ordering</span>
+            <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span> <span class="o">=</span> <span class="n">_unique_ordered</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span> <span class="o">=</span> <span class="n">ns</span>
 </code></pre></div></td></tr></table></div>
@@ -914,10 +936,7 @@ yields Contexts to the user, and advances the state machine based on user result
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/protokol/engine/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 63</span>
-<span class="normal"> 64</span>
-<span class="normal"> 65</span>
-<span class="normal"> 66</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 66</span>
 <span class="normal"> 67</span>
 <span class="normal"> 68</span>
 <span class="normal"> 69</span>
@@ -999,7 +1018,19 @@ yields Contexts to the user, and advances the state machine based on user result
 <span class="normal">145</span>
 <span class="normal">146</span>
 <span class="normal">147</span>
-<span class="normal">148</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flow</span><span class="p">:</span> <span class="n">AbstractFlow</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">RunPlan</span><span class="p">,</span> <span class="n">user_result</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">advance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flow</span><span class="p">:</span> <span class="n">AbstractFlow</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">RunPlan</span><span class="p">,</span> <span class="n">user_result</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Processes the LLM result returned by the user and advances the state machine pointers.&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">active_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_flow</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span>
@@ -1009,39 +1040,44 @@ yields Contexts to the user, and advances the state machine based on user result
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">user_result</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;For parallel execution, user_result must be a dict.&quot;</span><span class="p">)</span>
 
-            <span class="n">next_steps</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">next_steps</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">s_id</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">:</span>
                 <span class="n">step</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
+                <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
 
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">output</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">))</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="c1"># Built-in Retry Logic: If processing fails, increment attempt and skip advancing.</span>
-                    <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
                     <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
                     <span class="n">step_state</span><span class="o">.</span><span class="n">last_error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">&lt;=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">max_retries</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">retry_strategy</span><span class="o">.</span><span class="n">should_retry</span><span class="p">(</span><span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
                         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">s_id</span><span class="si">}</span><span class="s2"> failed, retrying: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                         <span class="n">next_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span> <span class="c1"># Keep step in the next parallel batch</span>
                         <span class="k">continue</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">e</span>
 
+                <span class="n">attempt_before_reset</span> <span class="o">=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span>
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">(</span><span class="n">s_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
-                <span class="c1"># Write to immutable audit log</span>
-                <span class="n">plan</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                    <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">s_id</span><span class="p">,</span>
-                    <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
-                    <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">),</span>
-                <span class="p">})</span>
-
                 <span class="c1"># Calculate next step(s)</span>
                 <span class="n">ns</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">next</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
+
+                <span class="c1"># Write to immutable audit log</span>
+                <span class="n">plan</span><span class="o">.</span><span class="n">add_trace_entry</span><span class="p">(</span>
+                    <span class="n">step</span><span class="o">=</span><span class="n">s_id</span><span class="p">,</span>
+                    <span class="n">attempt</span><span class="o">=</span><span class="n">attempt_before_reset</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">=</span><span class="n">user_result</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">s_id</span><span class="p">),</span>
+                    <span class="n">next_step</span><span class="o">=</span><span class="n">ns</span><span class="p">,</span>
+                    <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="n">plan</span><span class="o">.</span><span class="n">reset_step_state</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span>
+
                 <span class="k">if</span> <span class="n">ns</span><span class="p">:</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span> <span class="n">next_steps</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span> <span class="n">next_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
+                    <span class="n">next_steps</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">ns</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">ns</span><span class="p">])</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_handle_next_steps</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">next_steps</span><span class="p">)</span>
 
@@ -1050,31 +1086,35 @@ yields Contexts to the user, and advances the state machine based on user result
             <span class="n">current_step_id</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span>
             <span class="n">step</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
 
+            <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">output</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">user_result</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="c1"># Built-in Retry Logic</span>
-                <span class="n">step_state</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
                 <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">+=</span> <span class="mi">1</span>
                 <span class="n">step_state</span><span class="o">.</span><span class="n">last_error</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span> <span class="o">&lt;=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">max_retries</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">retry_strategy</span><span class="o">.</span><span class="n">should_retry</span><span class="p">(</span><span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">current_step_id</span><span class="si">}</span><span class="s2"> failed, retrying: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="k">return</span> <span class="c1"># Abort advancement, exact same context will be yielded on next loop</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">e</span>
 
+            <span class="n">attempt_before_reset</span> <span class="o">=</span> <span class="n">step_state</span><span class="o">.</span><span class="n">attempt</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">on_step_complete</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
             <span class="n">ns</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">next</span><span class="p">(</span><span class="n">plan</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span>
 
             <span class="c1"># Write to immutable audit log</span>
-            <span class="n">plan</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="n">current_step_id</span><span class="p">,</span>
-                <span class="s2">&quot;attempt&quot;</span><span class="p">:</span> <span class="n">plan</span><span class="o">.</span><span class="n">get_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span><span class="o">.</span><span class="n">attempt</span><span class="p">,</span>
-                <span class="s2">&quot;result&quot;</span><span class="p">:</span> <span class="n">user_result</span><span class="p">,</span>
-                <span class="s2">&quot;next&quot;</span><span class="p">:</span> <span class="n">ns</span>
-            <span class="p">})</span>
+            <span class="n">plan</span><span class="o">.</span><span class="n">add_trace_entry</span><span class="p">(</span>
+                <span class="n">step</span><span class="o">=</span><span class="n">current_step_id</span><span class="p">,</span>
+                <span class="n">attempt</span><span class="o">=</span><span class="n">attempt_before_reset</span><span class="p">,</span>
+                <span class="n">result</span><span class="o">=</span><span class="n">user_result</span><span class="p">,</span>
+                <span class="n">next_step</span><span class="o">=</span><span class="n">ns</span><span class="p">,</span>
+                <span class="n">parallel</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="n">plan</span><span class="o">.</span><span class="n">reset_step_state</span><span class="p">(</span><span class="n">current_step_id</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_handle_next_steps</span><span class="p">(</span><span class="n">flow</span><span class="p">,</span> <span class="n">plan</span><span class="p">,</span> <span class="n">ns</span><span class="p">)</span>
 
@@ -1107,10 +1147,7 @@ yields Contexts to the user, and advances the state machine based on user result
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/protokol/engine/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">37</span>
 <span class="normal">38</span>
 <span class="normal">39</span>
 <span class="normal">40</span>
@@ -1134,7 +1171,10 @@ yields Contexts to the user, and advances the state machine based on user result
 <span class="normal">58</span>
 <span class="normal">59</span>
 <span class="normal">60</span>
-<span class="normal">61</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flow</span><span class="p">:</span> <span class="n">AbstractFlow</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">RunPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">StepContext</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StepContext</span><span class="p">]]:</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flow</span><span class="p">:</span> <span class="n">AbstractFlow</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">RunPlan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">StepContext</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">StepContext</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Yields the StepContext(s) for the current step in the RunPlan.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;RunPlan.current_step is not set.&quot;</span><span class="p">)</span>
@@ -1145,7 +1185,7 @@ yields Contexts to the user, and advances the state machine based on user result
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
         <span class="n">contexts</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">s_id</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">current_step</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">:</span> 
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">on_step_start</span><span class="p">(</span><span class="n">s_id</span><span class="p">,</span> <span class="n">plan</span><span class="p">)</span>
             <span class="n">contexts</span><span class="p">[</span><span class="n">s_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">active_flow</span><span class="o">.</span><span class="n">get_step</span><span class="p">(</span><span class="n">s_id</span><span class="p">)</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">plan</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">contexts</span>
