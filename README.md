@@ -63,6 +63,8 @@ uv add protokol-core
 
 Once installed, you can import every public building block via `from protokol import ...`.
 
+📚 **Docs:** Full documentation (guides + API reference) now lives at [https://souvik666.github.io/protokol-core/](https://souvik666.github.io/protokol-core/).
+
 ---
 
 ## ✨ Minimal Example
