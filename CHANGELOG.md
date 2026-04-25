@@ -1,3 +1,7 @@
+## v0.1.6 - 2026-04-25
+
+- Automatic release for commit c77ba39
+
 ## v0.1.5 - 2026-04-25
 
 - Automatic release for commit fcf0519
