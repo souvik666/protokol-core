@@ -420,6 +420,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Engine
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#protokol.Engine" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -447,6 +458,17 @@
     <span class="md-ellipsis">
       
         get_context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retry-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retry Strategies
       
     </span>
   </a>
@@ -523,6 +545,7 @@
 
 
 <h1 id="engine-api">Engine API<a class="headerlink" href="#engine-api" title="Permanent link">&para;</a></h1>
+<h2 id="engine">Engine<a class="headerlink" href="#engine" title="Permanent link">&para;</a></h2>
 
 
 <div class="doc doc-object doc-class">
@@ -1214,7 +1237,35 @@ yields Contexts to the user, and advances the state machine based on user result
 
     </div>
 
-</div>
+</div><h3 id="retry-strategies">Retry Strategies<a class="headerlink" href="#retry-strategies" title="Permanent link">&para;</a></h3>
+<p>The engine accepts a <code>retry_strategy</code> argument that implements <code>protokol.engine.retry.RetryStrategy</code>. Three strategies ship out-of-the-box:</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Behavior</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SimpleRetryStrategy</code></td>
+<td>Retries until <code>max_retries</code> regardless of exception type.</td>
+<td>Default option for most use cases where temporary LLM/tool failures should be retried.</td>
+</tr>
+<tr>
+<td><code>ExceptionRetryStrategy</code></td>
+<td>Retries only when the raised exception matches <code>retry_for</code>.</td>
+<td>When certain errors (e.g., timeouts) should retry but validation errors should fail fast.</td>
+</tr>
+<tr>
+<td><code>NoRetryStrategy</code></td>
+<td>Never retries and surfaces the first exception.</td>
+<td>For deterministic pipelines where retries should be handled outside Protokol.</td>
+</tr>
+</tbody>
+</table>
+<p>You can also implement your own strategy by subclassing <code>RetryStrategy</code> and overriding <code>should_retry(attempt, error) -&gt; bool</code>.</p>
 
 
 

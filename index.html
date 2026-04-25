@@ -516,9 +516,9 @@
 <p>Welcome to the official documentation for <strong>Protokol</strong>, the ultra-lightweight, enterprise-grade LLM orchestration framework. This site covers the Bring-Your-Own-LLM philosophy, architecture, and real-world usage patterns.</p>
 <h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
 <p>=== "Bring Your Own LLM"
-    Protokol is execution-agnostic. It focuses purely on routing and state, letting you plug in any SDK or HTTP client you prefer.</p>
+    Protokol is execution-agnostic. It focuses purely on routing and state, letting you plug in any SDK or HTTP client you prefer. The engine exposes <code>RetryStrategy</code> hooks so you can align reliability policies with each downstream platform.</p>
 <p>=== "Stateless &amp; Auditable"
-    Every flow change is tracked inside the <code>RunPlan.trace</code> log. Serialize it to JSON for compliance or cross-service persistence.</p>
+    Every flow change is tracked inside the typed <code>RunPlan.trace</code> log (each entry is a <code>TraceEntry</code>). Serialize via <code>RunPlan.to_json()</code> or <code>to_dict()</code> for compliance or cross-service persistence.</p>
 <p>=== "Enterprise Ready"
     Human-in-the-loop support, resumable workflows, and zero network dependencies make Protokol ideal for regulated environments.</p>
 <h2 id="getting-started">Getting Started<a class="headerlink" href="#getting-started" title="Permanent link">&para;</a></h2>
