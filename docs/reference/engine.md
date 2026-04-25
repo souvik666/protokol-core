@@ -1,3 +1,3 @@
 # Engine API
 
-::: protokol.engine.runner.Engine
+::: protokol.Engine

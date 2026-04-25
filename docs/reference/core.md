@@ -2,12 +2,12 @@
 
 ## Flows & Steps
 
-::: protokol.core.flow.AbstractFlow
+::: protokol.AbstractFlow
 
-::: protokol.core.step.AbstractStep
+::: protokol.AbstractStep
 
 ## Types
 
-::: protokol.core.types.StepContext
+::: protokol.StepContext
 
-::: protokol.core.types.RunPlan
+::: protokol.RunPlan

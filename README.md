@@ -126,8 +126,7 @@ Here is how you build a strict conversational state machine.
 Steps dictate *what* needs to happen, but they do not execute it.
 
 ```python
-from core.step import AbstractStep
-from core.types import RunPlan, StepContext
+from protokol import AbstractStep, RunPlan, StepContext
 from typing import Union, List
 
 class CollectNameStep(AbstractStep):
@@ -159,7 +158,7 @@ class CollectNameStep(AbstractStep):
 
 ### 2. Define Your Flow
 ```python
-from core.flow import AbstractFlow
+from protokol import AbstractFlow
 
 class OnboardingFlow(AbstractFlow):
     id = "onboarding_flow"
@@ -173,8 +172,7 @@ class OnboardingFlow(AbstractFlow):
 You wrap Protokol in your own execution environment (CLI, FastAPI, etc.).
 
 ```python
-from engine.runner import Engine
-from core.types import RunPlan
+from protokol import Engine, RunPlan
 
 flow = OnboardingFlow()
 engine = Engine()
@@ -198,7 +196,7 @@ while not plan.is_terminal and not plan.is_waiting:
 Because `RunPlan` is a pure dataclass, pausing a workflow to wait for human input is incredibly simple:
 
 ```python
-from core.storage import FileStorage
+from protokol import FileStorage
 
 storage = FileStorage(directory=".sessions")
 
