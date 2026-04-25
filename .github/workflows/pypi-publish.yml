@@ -6,13 +6,17 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  semantic-release:
-    name: Version, tag, and publish
+  release:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -26,61 +30,91 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
+      - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
-          pip install python-semantic-release build
+          pip install build
 
-      - name: Ensure base tag exists
+      - name: Bump version and update changelog
+        id: versioning
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          CURRENT_VERSION=$(grep -E '^version\s*=\s*"' pyproject.toml | head -n1 | sed -E 's/version\s*=\s*"([^"]+)"/\1/')
-          if ! git rev-parse "v${CURRENT_VERSION}" >/dev/null 2>&1; then
-            git tag "v${CURRENT_VERSION}" || true
-            git push origin "v${CURRENT_VERSION}" || true
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timezone
+          import os
+          import re
 
-      - name: Determine previous tag
-        id: prev_tag
-        run: |
-          git fetch --tags --force
-          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
-          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          pyproject = Path("pyproject.toml")
+          text = pyproject.read_text(encoding="utf-8")
+          pattern = r'(version\s*=\s*")([^"]+)(")'
+          match = re.search(pattern, text)
+          if not match:
+              raise SystemExit("Could not find version in pyproject.toml")
+          current_version = match.group(2)
+          parts = current_version.split('.')
+          if len(parts) < 3 or not all(part.isdigit() for part in parts):
+              raise SystemExit(f"Unsupported version format: {current_version}")
+          parts[-1] = str(int(parts[-1]) + 1)
+          new_version = '.'.join(parts)
+          pyproject.write_text(re.sub(pattern, rf'\1{new_version}\3', text, count=1), encoding="utf-8")
 
-      - name: Run semantic-release
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          semantic-release publish
+          init_path = Path("src/protokol/__init__.py")
+          init_text = init_path.read_text(encoding="utf-8")
+          init_text, count = re.subn(r'(__version__\s*=\s*")([^"]+)(")', rf'\1{new_version}\3', init_text, count=1)
+          if count != 1:
+              raise SystemExit("Could not update __version__ in src/protokol/__init__.py")
+          init_path.write_text(init_text, encoding="utf-8")
 
-      - name: Detect release output
-        id: release_check
-        run: |
-          git fetch --tags --force
-          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
-          PREV_TAG="${{ steps.prev_tag.outputs.tag }}"
-          if [ "$NEW_TAG" = "$PREV_TAG" ]; then
-            echo "released=false" >> $GITHUB_OUTPUT
-          else
-            echo "released=true" >> $GITHUB_OUTPUT
-            echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
-          fi
+          changelog = Path("CHANGELOG.md")
+          entry = (
+              f"## v{new_version} - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\n\n"
+              f"- Automatic release for commit {os.environ['GITHUB_SHA'][:7]}\n\n"
+          )
+          if changelog.exists():
+              changelog.write_text(entry + changelog.read_text(encoding="utf-8"), encoding="utf-8")
+          else:
+              changelog.write_text("# Changelog\n\n" + entry, encoding="utf-8")
 
-      - name: Sync release commit
-        if: steps.release_check.outputs.released == 'true'
-        run: |
-          git pull --ff-only origin main
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              print(f"previous={current_version}", file=fh)
+              print(f"version={new_version}", file=fh)
+          PY
 
       - name: Build distributions
-        if: steps.release_check.outputs.released == 'true'
         run: |
+          rm -rf dist
           python -m build
 
       - name: Publish to PyPI
-        if: steps.release_check.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          skip_existing: true
+          skip_existing: false
+
+      - name: Commit version bump and tag
+        env:
+          NEW_VERSION: ${{ steps.versioning.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml src/protokol/__init__.py CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(release): v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+          git push origin HEAD:main
+          git push origin "v${NEW_VERSION}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.versioning.outputs.version }}
+        run: |
+          gh release create "v${NEW_VERSION}" \
+            --title "v${NEW_VERSION}" \
+            --notes "Automated release for commit ${{ github.sha }}" \
+            --latest
