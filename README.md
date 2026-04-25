@@ -118,6 +118,19 @@ Run it after installing `protokol-core`; the script prints the instruction the e
 
 ---
 
+## 🔎 Component Reference
+
+| Component | What it is | How to use it | When to reach for it |
+| --- | --- | --- | --- |
+| `AbstractStep` | Base class for declarative step definitions. You implement `get_context`, `process`, and `next`. | Subclass it to describe a single unit of work, persist intermediate state via `plan.state`, and route to next steps via `next()`. | Whenever you need deterministic orchestration around an LLM/tool call. |
+| `StepContext` | Lightweight dataclass describing the prompt, tool list, and kwargs your executor needs. | Return it from `get_context` to tell your host application what to execute. | Every time the engine asks "what should happen next". |
+| `AbstractFlow` | A collection of steps that itself behaves like a step (supports nesting). | Declare the `steps` mapping (ID → Step class) and instantiate the flow to wire the steps together. | For grouping related steps, composing flows, or registering sub-flows inside parent flows. |
+| `RunPlan` | Serializable state machine memory including state, retries, call stack, and the typed `trace`. | Initialize it with a `current_step`, persist/load via `.to_json()` and `.from_json()` (or `.to_dict()` / `.from_dict()`), and inspect `trace` for auditability. | Anytime you need to pause/resume flows, inspect audit logs, or coordinate parallel steps safely. |
+| `FileStorage` | Simple storage adapter implementing `AbstractStorage` using the filesystem. | Instantiate with a directory, then call `.save(session_id, plan)` / `.load(session_id)`. | Local development, CLI demos, or lightweight deployments where a DB is not required. |
+| `Engine` | Stateless runner that evaluates flows, emits contexts, and applies user results. | Instantiate once (optionally passing hooks + a `RetryStrategy`), call `get_context` before executing your LLM/tool, then call `advance` with the result. | When you need deterministic control flow, retries, nested flows, and audit logs without building your own state machine. |
+| `RetryStrategy` (`SimpleRetryStrategy`, `ExceptionRetryStrategy`, `NoRetryStrategy`) | Strategy interface that decides whether a failed step should retry. | Pass a custom strategy to `Engine(retry_strategy=...)`. Strategies receive the attempt count and raised exception. | To enforce custom retry budgets, treat certain exceptions as terminal, or disable retries entirely. |
+| `TraceEntry` | Typed audit log row capturing `step`, `attempt`, `result`, `next`, and `parallel` metadata. | Read from `plan.trace`, or create custom entries via `plan.add_trace_entry(...)`. | Compliance, analytics, and debugging workflows that require structured historical data. |
+
 ## 🚀 Quickstart: End-to-End Usage
 
 Here is how you build a strict conversational state machine.
@@ -191,9 +204,9 @@ while not plan.is_terminal and not plan.is_waiting:
 
 ---
 
-## 💾 Persistence (Human-in-the-Loop)
+## 💾 Persistence & Auditability
 
-Because `RunPlan` is a pure dataclass, pausing a workflow to wait for human input is incredibly simple:
+Because `RunPlan` is a pure dataclass with structured serialization helpers, pausing a workflow to wait for human input is incredibly simple:
 
 ```python
 from protokol import FileStorage
@@ -210,8 +223,9 @@ resumed_plan.is_waiting = False
 ```
 
 ## 🛠️ Advanced Features Built-In
-* **Parallel Routing:** Return a `List[str]` from a Step's `next()` method to fan-out execution.
-* **Native Retries:** The Engine automatically catches exceptions during `process()` and safely yields the exact same context to let your execution loop retry.
+* **Typed Audit Log:** Every call to `advance` appends a `TraceEntry` capturing the attempt number, result payload, next hop, and whether the step ran in parallel. Persist the plan via `RunPlan.to_json()` for a compliance-ready audit trail.
+* **Customizable Retries:** Supply any `RetryStrategy` to the engine (e.g., `SimpleRetryStrategy`, `ExceptionRetryStrategy`, `NoRetryStrategy`) to decide when to re-issue the same context versus surfacing an error.
+* **Parallel Routing:** Return a `List[str]` from a Step's `next()` method to fan-out execution. The engine preserves ordering when coordinating multiple branches.
 * **Nested Flows:** Flows inherit from Steps, meaning a Flow can be registered as a Step inside another Flow with zero additional config.
 
 ---

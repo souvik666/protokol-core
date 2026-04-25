@@ -5,10 +5,10 @@ Welcome to the official documentation for **Protokol**, the ultra-lightweight, e
 ## Highlights
 
 === "Bring Your Own LLM"
-    Protokol is execution-agnostic. It focuses purely on routing and state, letting you plug in any SDK or HTTP client you prefer.
+    Protokol is execution-agnostic. It focuses purely on routing and state, letting you plug in any SDK or HTTP client you prefer. The engine exposes `RetryStrategy` hooks so you can align reliability policies with each downstream platform.
 
 === "Stateless & Auditable"
-    Every flow change is tracked inside the `RunPlan.trace` log. Serialize it to JSON for compliance or cross-service persistence.
+    Every flow change is tracked inside the typed `RunPlan.trace` log (each entry is a `TraceEntry`). Serialize via `RunPlan.to_json()` or `to_dict()` for compliance or cross-service persistence.
 
 === "Enterprise Ready"
     Human-in-the-loop support, resumable workflows, and zero network dependencies make Protokol ideal for regulated environments.
