@@ -21,3 +21,15 @@ dependencies = []
 
 [project.urls]
 "Homepage" = "https://github.com/souvik/protokol-core"
+
+[tool.semantic_release]
+version_variable = [
+  "pyproject.toml:project.version",
+  "src/protokol/__init__.py:__version__"
+]
+branch = "main"
+upload_to_pypi = true
+upload_to_release = true
+build_command = "python -m build"
+changelog_file = "CHANGELOG.md"
+commit_author = "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"

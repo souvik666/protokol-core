@@ -47,6 +47,73 @@ Protokol consists of three main concepts:
 
 ---
 
+## 📦 Installation
+
+Protokol is published on PyPI as [`protokol-core`](https://pypi.org/project/protokol-core/) and targets Python **3.10+**.
+
+```bash
+python -m pip install protokol-core
+```
+
+Prefer using a virtual environment (e.g., `python -m venv .venv && source .venv/bin/activate`) or a modern tool like [uv](https://github.com/astral-sh/uv):
+
+```bash
+uv add protokol-core
+```
+
+Once installed, you can import every public building block via `from protokol import ...`.
+
+---
+
+## ✨ Minimal Example
+
+Need a tiny script to understand the moving pieces? The example below wires a single step into a flow, asks the engine for instructions, and feeds back a mocked LLM response:
+
+```python
+from protokol import AbstractFlow, AbstractStep, Engine, RunPlan, StepContext
+
+
+class CollectGreetingStep(AbstractStep):
+    id = "collect_greeting"
+
+    def get_context(self, plan: RunPlan) -> StepContext:
+        return StepContext(
+            prompt="Ask the user to say hello and return 'GREETING: <text>'",
+            tools=[]
+        )
+
+    def process(self, plan: RunPlan, user_result: str) -> dict:
+        plan.state["greeting"] = user_result.replace("GREETING:", "").strip()
+        return {"status": "success"}
+
+    def next(self, plan: RunPlan, output: dict):
+        plan.is_terminal = True
+        return None
+
+
+class GreetingFlow(AbstractFlow):
+    id = "greeting_flow"
+    steps = {"collect_greeting": CollectGreetingStep}
+
+
+flow = GreetingFlow()
+engine = Engine()
+plan = RunPlan(current_step="collect_greeting")
+
+context = engine.get_context(flow, plan)
+print("Prompt for your executor:", context.prompt)
+
+# Pretend your own execution layer called an LLM and received a response
+mock_llm_response = "GREETING: Hi there!"
+engine.advance(flow, plan, mock_llm_response)
+
+print("Recorded state:", plan.state)
+```
+
+Run it after installing `protokol-core`; the script prints the instruction the engine generated, then shows the state captured once the mocked response is processed.
+
+---
+
 ## 🚀 Quickstart: End-to-End Usage
 
 Here is how you build a strict conversational state machine.

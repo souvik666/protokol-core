@@ -1,36 +1,39 @@
-name: Publish to PyPI
+name: Release
 
 on:
   push:
     branches:
       - main
-  # Also allow manual triggering from the GitHub UI
   workflow_dispatch:
 
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
-  build-and-publish:
-    name: Build and upload to PyPI
+  semantic-release:
+    name: Version, tag, and publish
     runs-on: ubuntu-latest
-    
+    environment: release
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install Build Tools
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install python-semantic-release
 
-      - name: Build Source and Wheel Distributions
-        run: python -m build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          # This requires you to add your PyPI token to GitHub Repository Secrets
-          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Run semantic-release
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release publish
