@@ -1,8 +1,9 @@
 import logging
-from typing import Optional, Callable, Any, Union, Dict, List
+from typing import Optional, Callable, Any, Union, Dict, List, Sequence
 from protokol.core.types import RunPlan, StepContext
 from protokol.core.flow import AbstractFlow
 from protokol.core.step import AbstractStep
+from protokol.engine.retry import RetryStrategy, SimpleRetryStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,13 @@ class Engine:
         on_step_start: Optional[Callable[[str, RunPlan], None]] = None,
         on_step_complete: Optional[Callable[[str, RunPlan, Any], None]] = None,
         on_flow_error: Optional[Callable[[str, RunPlan, Exception], None]] = None,
+        retry_strategy: Optional[RetryStrategy] = None,
     ):
         # Observability hooks for integrating Datadog, Prometheus, etc.
         self.on_step_start = on_step_start
         self.on_step_complete = on_step_complete
         self.on_flow_error = on_flow_error
+        self.retry_strategy = retry_strategy or SimpleRetryStrategy()
 
     def _resolve_flow(self, root_flow: AbstractFlow, plan: RunPlan) -> AbstractFlow:
         """Resolve the currently active flow by walking down the nested flow call stack."""
@@ -42,7 +45,7 @@ class Engine:
         if isinstance(plan.current_step, list):
             contexts = {}
             for s_id in plan.current_step:
-                if self.on_step_start: 
+                if self.on_step_start:
                     self.on_step_start(s_id, plan)
                 contexts[s_id] = active_flow.get_step(s_id).get_context(plan)
             return contexts
@@ -70,39 +73,44 @@ class Engine:
                 if not isinstance(user_result, dict):
                     raise ValueError("For parallel execution, user_result must be a dict.")
                     
-                next_steps = []
+                next_steps: List[str] = []
                 for s_id in plan.current_step:
                     step = active_flow.get_step(s_id)
+                    step_state = plan.get_step_state(s_id)
                     
                     try:
                         output = step.process(plan, user_result.get(s_id))
                     except Exception as e:
                         # Built-in Retry Logic: If processing fails, increment attempt and skip advancing.
-                        step_state = plan.get_step_state(s_id)
                         step_state.attempt += 1
                         step_state.last_error = str(e)
-                        if step_state.attempt <= step_state.max_retries:
+                        if self.retry_strategy.should_retry(step_state.attempt, e):
                             logger.warning(f"Step {s_id} failed, retrying: {e}")
                             next_steps.append(s_id) # Keep step in the next parallel batch
                             continue
                         else:
                             raise e
 
+                    attempt_before_reset = step_state.attempt
                     if self.on_step_complete:
                         self.on_step_complete(s_id, plan, output)
                         
-                    # Write to immutable audit log
-                    plan.trace.append({
-                        "step": s_id,
-                        "attempt": plan.get_step_state(s_id).attempt,
-                        "result": user_result.get(s_id),
-                    })
-
                     # Calculate next step(s)
                     ns = step.next(plan, output)
+
+                    # Write to immutable audit log
+                    plan.add_trace_entry(
+                        step=s_id,
+                        attempt=attempt_before_reset,
+                        result=user_result.get(s_id),
+                        next_step=ns,
+                        parallel=True,
+                    )
+
+                    plan.reset_step_state(s_id)
+
                     if ns:
-                        if isinstance(ns, list): next_steps.extend(ns)
-                        else: next_steps.append(ns)
+                        next_steps.extend(ns if isinstance(ns, list) else [ns])
                         
                 self._handle_next_steps(flow, plan, next_steps)
 
@@ -111,31 +119,35 @@ class Engine:
                 current_step_id = plan.current_step
                 step = active_flow.get_step(current_step_id)
                 
+                step_state = plan.get_step_state(current_step_id)
                 try:
                     output = step.process(plan, user_result)
                 except Exception as e:
                     # Built-in Retry Logic
-                    step_state = plan.get_step_state(current_step_id)
                     step_state.attempt += 1
                     step_state.last_error = str(e)
-                    if step_state.attempt <= step_state.max_retries:
+                    if self.retry_strategy.should_retry(step_state.attempt, e):
                         logger.warning(f"Step {current_step_id} failed, retrying: {e}")
                         return # Abort advancement, exact same context will be yielded on next loop
                     else:
                         raise e
-                        
+
+                attempt_before_reset = step_state.attempt
                 if self.on_step_complete:
                     self.on_step_complete(current_step_id, plan, output)
                     
                 ns = step.next(plan, output)
                 
                 # Write to immutable audit log
-                plan.trace.append({
-                    "step": current_step_id,
-                    "attempt": plan.get_step_state(current_step_id).attempt,
-                    "result": user_result,
-                    "next": ns
-                })
+                plan.add_trace_entry(
+                    step=current_step_id,
+                    attempt=attempt_before_reset,
+                    result=user_result,
+                    next_step=ns,
+                    parallel=False,
+                )
+
+                plan.reset_step_state(current_step_id)
 
                 self._handle_next_steps(flow, plan, ns)
 
@@ -167,7 +179,17 @@ class Engine:
                 # Stack is empty, the root flow is complete
                 plan.is_terminal = True
         elif isinstance(ns, list):
-            # Parallel execution
-            plan.current_step = list(set(ns))
+            # Parallel execution - preserve order and deduplicate while keeping deterministic ordering
+            plan.current_step = _unique_ordered(ns)
         else:
             plan.current_step = ns
+
+
+def _unique_ordered(items: Sequence[str]) -> List[str]:
+    seen = set()
+    ordered: List[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            ordered.append(item)
+    return ordered
