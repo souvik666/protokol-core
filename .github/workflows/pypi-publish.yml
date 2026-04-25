@@ -45,7 +45,7 @@ jobs:
           from datetime import datetime, timezone
           import os
           import re
-
+          
           pyproject = Path("pyproject.toml")
           text = pyproject.read_text(encoding="utf-8")
           pattern = r'(version\s*=\s*")([^"]+)(")'
@@ -58,15 +58,15 @@ jobs:
               raise SystemExit(f"Unsupported version format: {current_version}")
           parts[-1] = str(int(parts[-1]) + 1)
           new_version = '.'.join(parts)
-          pyproject.write_text(re.sub(pattern, rf'\1{new_version}\3', text, count=1), encoding="utf-8")
-
+          pyproject.write_text(re.sub(pattern, rf'\g<1>{new_version}\g<3>', text, count=1), encoding="utf-8")
+          
           init_path = Path("src/protokol/__init__.py")
           init_text = init_path.read_text(encoding="utf-8")
-          init_text, count = re.subn(r'(__version__\s*=\s*")([^"]+)(")', rf'\1{new_version}\3', init_text, count=1)
+          init_text, count = re.subn(r'(__version__\s*=\s*")([^"]+)(")', rf'\g<1>{new_version}\g<3>', init_text, count=1)
           if count != 1:
               raise SystemExit("Could not update __version__ in src/protokol/__init__.py")
           init_path.write_text(init_text, encoding="utf-8")
-
+          
           changelog = Path("CHANGELOG.md")
           entry = (
               f"## v{new_version} - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}\n\n"
@@ -76,7 +76,7 @@ jobs:
               changelog.write_text(entry + changelog.read_text(encoding="utf-8"), encoding="utf-8")
           else:
               changelog.write_text("# Changelog\n\n" + entry, encoding="utf-8")
-
+          
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               print(f"previous={current_version}", file=fh)
               print(f"version={new_version}", file=fh)
