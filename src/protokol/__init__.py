@@ -1,9 +1,10 @@
 from .core.step import AbstractStep
 from .core.flow import AbstractFlow
 from .core.types import RunPlan, StepContext
+from .core.storage import AbstractStorage, FileStorage
 from .engine.runner import Engine
 
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 __all__ = [
     "AbstractStep",
