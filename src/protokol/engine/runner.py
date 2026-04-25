@@ -1,8 +1,8 @@
 import logging
 from typing import Optional, Callable, Any, Union, Dict, List
-from core.types import RunPlan, StepContext
-from core.flow import AbstractFlow
-from core.step import AbstractStep
+from protokol.core.types import RunPlan, StepContext
+from protokol.core.flow import AbstractFlow
+from protokol.core.step import AbstractStep
 
 logger = logging.getLogger(__name__)
 
