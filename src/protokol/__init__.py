@@ -4,7 +4,7 @@ from .core.types import RunPlan, StepContext
 from .core.storage import AbstractStorage, FileStorage
 from .engine.runner import Engine
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 __all__ = [
     "AbstractStep",
