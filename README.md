@@ -65,6 +65,8 @@ Once installed, you can import every public building block via `from protokol im
 
 📚 **Docs:** Full documentation (guides + API reference) now lives at [https://souvik666.github.io/protokol-core/](https://souvik666.github.io/protokol-core/).
 
+🚢 **Releases:** Every push to `main` that follows Conventional Commits triggers semantic-release, which tags the repo, creates a GitHub release, and uploads the fresh build to [PyPI](https://pypi.org/project/protokol-core/).
+
 ---
 
 ## ✨ Minimal Example

@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install python-semantic-release
+          pip install python-semantic-release build
 
       - name: Ensure base tag exists
         env:
@@ -41,9 +41,46 @@ jobs:
             git push origin "v${CURRENT_VERSION}" || true
           fi
 
+      - name: Determine previous tag
+        id: prev_tag
+        run: |
+          git fetch --tags --force
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          echo "tag=$PREV_TAG" >> $GITHUB_OUTPUT
+
       - name: Run semantic-release
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           semantic-release publish
+
+      - name: Detect release output
+        id: release_check
+        run: |
+          git fetch --tags --force
+          NEW_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo '')
+          PREV_TAG="${{ steps.prev_tag.outputs.tag }}"
+          if [ "$NEW_TAG" = "$PREV_TAG" ]; then
+            echo "released=false" >> $GITHUB_OUTPUT
+          else
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Sync release commit
+        if: steps.release_check.outputs.released == 'true'
+        run: |
+          git pull --ff-only origin main
+
+      - name: Build distributions
+        if: steps.release_check.outputs.released == 'true'
+        run: |
+          python -m build
+
+      - name: Publish to PyPI
+        if: steps.release_check.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip_existing: true
