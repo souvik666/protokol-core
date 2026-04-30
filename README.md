@@ -2,6 +2,8 @@
   <img src="assets/logo.png" alt="Protokol Logo" width="500"/>
 </p>
 
+[![pages-build-deployment](https://github.com/souvik666/protokol-core/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/souvik666/protokol-core/actions/workflows/pages/pages-build-deployment)
+
 # Protokol 🚀
 
 **The Ultra-Lightweight, Enterprise-Grade LLM Orchestration Framework for Python.**
